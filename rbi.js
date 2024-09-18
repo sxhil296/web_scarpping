@@ -1,13 +1,12 @@
 import puppeteer from "puppeteer";
 import connectDB from "./db/index.db.js";
-import Speech from './models/Speech.model.js'
+import Speech from "./models/Speech.model.js";
 
 const url = "https://www.rbi.org.in/Scripts/BS_ViewSpeeches.aspx";
 
 const getSpeeches = async () => {
-
-   // Connect to MongoDB
-   await connectDB();
+  // Connect to MongoDB
+  await connectDB();
   const browser = await puppeteer.launch({
     headless: false,
     defaultViewport: null,
@@ -20,13 +19,13 @@ const getSpeeches = async () => {
   });
 
   // Initialize an array to store all speeches
-  // const allSpeeches = [];
+  const allSpeeches = [];
 
-  // Loop through the years from 2024 to 2022
-  for (let year = 2024; year >= 2022; year--) {
+  // Loop through the years from 2024 to 1990
+  for (let year = 2024; year >= 1990; year--) {
     console.log(`Scraping year: ${year}`);
 
-    // Click the element for the specific year// Flatten the array
+    // Click the element for the specific year
     await page.evaluate((year) => {
       const yearEl = document.getElementById(`${year}0`);
       if (yearEl) {
@@ -46,7 +45,7 @@ const getSpeeches = async () => {
         const dataEl = speechList[i].querySelector(".tableheader>b");
         const valueEl = speechList[i + 1].querySelector("td .link2");
         const linkEl = speechList[i + 1].querySelector("td .link2");
-        const pdfEl = speechList[i + 1].querySelector("td a");
+        const pdfEl = speechList[i + 1].querySelector("tr> td+td a");
 
         if (dataEl && valueEl && linkEl && pdfEl) {
           const date = dataEl.innerText.trim();
@@ -62,17 +61,19 @@ const getSpeeches = async () => {
     });
 
     // Add the speeches of the current year to the allSpeeches array
-    // allSpeeches.push(...speeches);
+    allSpeeches.push(...speeches);
 
-     // Save each speech to MongoDB
-     for (let speech of speeches) {
-      const newSpeech = new Speech(speech);
-      await newSpeech.save();
+    // Save each speech to MongoDB
+    for (let speech of speeches) {
+      const exists = await Speech.findOne({ date: speech.date, value: speech.value });
+      if (!exists) {
+        await Speech.create(speech);
+      }
     }
   }
 
   // Log the combined array of speeches
-  // console.log(allSpeeches);
+  console.log(allSpeeches);
   console.log("Scraping completed and data stored in MongoDB.");
   await browser.close();
 };
